@@ -327,13 +327,30 @@ TITLE_TEMPLATES = [
     "{mood} Jazz Cafe — {duration} of Chill Background Music",
 ]
 
+# Ең жоғары іздеу көлемді 3 hashtag — YouTube сипаттаманың алғашқы 3 hashtag-ын
+# видео тақырыбының үстінде басылатын chip ретінде көрсетеді, сондықтан бұлар
+# әрдайым ең күшті/кең тақырыптық болуы керек (тұрақты, айналмайды).
+ANCHOR_HASHTAGS = ["#jazz", "#relaxingmusic", "#studymusic"]
+
 HASHTAG_POOL = [
-    "#jazz", "#lofijazz", "#smoothjazz", "#jazzcafe", "#relaxingmusic",
-    "#studymusic", "#chilljazz", "#focusmusic", "#jazzmusic",
+    "#lofijazz", "#smoothjazz", "#jazzcafe",
+    "#chilljazz", "#focusmusic", "#jazzmusic",
     "#backgroundmusic", "#jazzpiano", "#loungejazz",
     "#jazznoir", "#coffeeshopmusic", "#rainyjazz", "#jazzvibes",
     "#ambientmusic", "#jazzbar", "#sleepmusic", "#relaxingjazz",
     "#worklofi", "#eveningjazz", "#jazzlounge", "#cozyjazz",
+]
+
+# YouTube-тың жасырын tags[] өрісіне арналған көп сөзді іздеу фразалары —
+# hashtag-тардан бөлек, себебі адамдар іздеу жолағына бір сөз емес, тіркес
+# теретінін ескереді ("jazz music for studying" секілді).
+SEO_KEYWORD_PHRASES = [
+    "jazz music", "relaxing jazz music", "jazz music for studying",
+    "jazz music for work", "smooth jazz playlist", "lofi jazz mix",
+    "jazz cafe music", "coffee shop jazz music", "sleep music jazz",
+    "jazz piano music", "jazz for sleeping", "background jazz music",
+    "study jazz playlist", "jazz lounge music", "rainy day jazz",
+    "cozy jazz music", "jazz instrumental music", "long jazz playlist",
 ]
 
 
@@ -347,7 +364,10 @@ def duration_label(minutes):
 
 
 def pick_rotating_tags(count=6):
-    return ' '.join(random.sample(HASHTAG_POOL, min(count, len(HASHTAG_POOL))))
+    """ANCHOR_HASHTAGS әрдайым бірінші (YouTube олардан chip көрсетеді),
+    қалғаны пулдан кездейсоқ таңдалады."""
+    extra = random.sample(HASHTAG_POOL, min(count, len(HASHTAG_POOL)))
+    return ' '.join(ANCHOR_HASHTAGS + extra)
 
 
 def build_title_and_description(target_minutes, selected_tracks):
@@ -371,18 +391,32 @@ def build_title_and_description(target_minutes, selected_tracks):
 
     hashtags = pick_rotating_tags()
 
+    # Бірінші абзацта негізгі кілт сөздерді табиғи сөйлеммен қайталау — YouTube
+    # іздеу индексі сипаттама мәтінін де оқиды, тек hashtag-тарды емес.
+    seo_intro = (
+        f"{duration} of {mood.lower()} smooth jazz music — the perfect jazz playlist "
+        f"for studying, working, relaxing or falling asleep. A cozy jazz lounge mix "
+        f"of piano, saxophone and lounge jazz to help you focus or unwind."
+    )
+
     description_parts = [
         f"{title}\n",
-        "🎵 Perfect background music for studying, working, relaxing or falling asleep.\n",
+        f"🎵 {seo_intro}\n",
         "Tracklist:",
         "\n".join(f"{i+1}. {line}" for i, line in enumerate(tracklist_lines[:40])),
     ]
     if attribution_lines:
         description_parts.append("\nAttribution:\n" + "\n".join(attribution_lines))
+    description_parts.append(
+        "\n🔔 Subscribe for a new smooth jazz mix every single day."
+    )
     description_parts.append(f"\n{hashtags}")
 
     description = "\n".join(description_parts)
-    tags = [t.lstrip('#') for t in hashtags.split()] + ["jazz", "lofi jazz", "relaxing music"]
+
+    # tags[] — hashtag сөздері + көп сөзді SEO фразалар (адамдар нақ осылай іздейді).
+    seo_tags = random.sample(SEO_KEYWORD_PHRASES, min(8, len(SEO_KEYWORD_PHRASES)))
+    tags = [t.lstrip('#') for t in hashtags.split()] + seo_tags + ["velvet jazz lounge"]
 
     return title, description, tags
 
