@@ -1,7 +1,271 @@
 {
-  "_example_track.mp3": {
-    "title": "Example Jazz Track",
-    "creator": "Artist Name",
+  "Acta Non Verba - Alex Hamlin.mp3": {
+    "title": "Acta Non Verba",
+    "creator": "Alex Hamlin",
+    "attribution_required": false,
+    "attribution_text": null
+  },
+  "Back At The Gates - Karneef.mp3": {
+    "title": "Back At The Gates",
+    "creator": "Karneef",
+    "attribution_required": false,
+    "attribution_text": null
+  },
+  "Back Scratcher - Alex Hamlin.mp3": {
+    "title": "Back Scratcher",
+    "creator": "Alex Hamlin",
+    "attribution_required": false,
+    "attribution_text": null
+  },
+  "Balada Gitana - House of the Gipsies.mp3": {
+    "title": "Balada Gitana",
+    "creator": "House of the Gipsies",
+    "attribution_required": false,
+    "attribution_text": null
+  },
+  "Beautiful Wonderful You - Jason Fabus.mp3": {
+    "title": "Beautiful Wonderful You",
+    "creator": "Jason Fabus",
+    "attribution_required": false,
+    "attribution_text": null
+  },
+  "Black ink letter - Patrick Jordan Patrikios.mp3": {
+    "title": "Black ink letter",
+    "creator": "Patrick Jordan Patrikios",
+    "attribution_required": false,
+    "attribution_text": null
+  },
+  "Burned out - Patrick Jordan Patrikios.mp3": {
+    "title": "Burned out",
+    "creator": "Patrick Jordan Patrikios",
+    "attribution_required": false,
+    "attribution_text": null
+  },
+  "Camargue - House of the Gipsies.mp3": {
+    "title": "Camargue",
+    "creator": "House of the Gipsies",
+    "attribution_required": false,
+    "attribution_text": null
+  },
+  "Campo Gitano - House of the Gipsies.mp3": {
+    "title": "Campo Gitano",
+    "creator": "House of the Gipsies",
+    "attribution_required": false,
+    "attribution_text": null
+  },
+  "Chase Waves - Karneef.mp3": {
+    "title": "Chase Waves",
+    "creator": "Karneef",
+    "attribution_required": false,
+    "attribution_text": null
+  },
+  "Chica Linda - Quincas Moreira.mp3": {
+    "title": "Chica Linda",
+    "creator": "Quincas Moreira",
+    "attribution_required": false,
+    "attribution_text": null
+  },
+  "Connective Tissue - Alex Hamlin.mp3": {
+    "title": "Connective Tissue",
+    "creator": "Alex Hamlin",
+    "attribution_required": false,
+    "attribution_text": null
+  },
+  "Estrella - House of the Gipsies.mp3": {
+    "title": "Estrella",
+    "creator": "House of the Gipsies",
+    "attribution_required": false,
+    "attribution_text": null
+  },
+  "Fields of fariness - Patrick Jordan Patrikios.mp3": {
+    "title": "Fields of fariness",
+    "creator": "Patrick Jordan Patrikios",
+    "attribution_required": false,
+    "attribution_text": null
+  },
+  "Flight Is Aight - Karneef.mp3": {
+    "title": "Flight Is Aight",
+    "creator": "Karneef",
+    "attribution_required": false,
+    "attribution_text": null
+  },
+  "Gravel town shake - Patrick Jordan Patrikios.mp3": {
+    "title": "Gravel town shake",
+    "creator": "Patrick Jordan Patrikios",
+    "attribution_required": false,
+    "attribution_text": null
+  },
+  "Highway whispers - Patrick Jordan Patrikios.mp3": {
+    "title": "Highway whispers",
+    "creator": "Patrick Jordan Patrikios",
+    "attribution_required": false,
+    "attribution_text": null
+  },
+  "Hounded - Nathan Moore.mp3": {
+    "title": "Hounded",
+    "creator": "Nathan Moore",
+    "attribution_required": false,
+    "attribution_text": null
+  },
+  "I Don't Know Why - Alex Robinson.mp3": {
+    "title": "I Don't Know Why",
+    "creator": "Alex Robinson",
+    "attribution_required": false,
+    "attribution_text": null
+  },
+  "I Love What You Do To Me - The Soundlings.mp3": {
+    "title": "I Love What You Do To Me",
+    "creator": "The Soundlings",
+    "attribution_required": false,
+    "attribution_text": null
+  },
+  "I'll Take None Of That - Karneef.mp3": {
+    "title": "I'll Take None Of That",
+    "creator": "Karneef",
+    "attribution_required": false,
+    "attribution_text": null
+  },
+  "It's Definitely It - Freedom Trail Studio.mp3": {
+    "title": "It's Definitely It",
+    "creator": "Freedom Trail Studio",
+    "attribution_required": false,
+    "attribution_text": null
+  },
+  "Last Cappuccino in Rio - Chris Haugen.mp3": {
+    "title": "Last Cappuccino in Rio",
+    "creator": "Chris Haugen",
+    "attribution_required": false,
+    "attribution_text": null
+  },
+  "Lonely Man - Alex Hamlin.mp3": {
+    "title": "Lonely Man",
+    "creator": "Alex Hamlin",
+    "attribution_required": false,
+    "attribution_text": null
+  },
+  "Los Cabos - House of the Gipsies.mp3": {
+    "title": "Los Cabos",
+    "creator": "House of the Gipsies",
+    "attribution_required": false,
+    "attribution_text": null
+  },
+  "Magnolia town - Patrick Jordan Patrikios.mp3": {
+    "title": "Magnolia town",
+    "creator": "Patrick Jordan Patrikios",
+    "attribution_required": false,
+    "attribution_text": null
+  },
+  "Majesta - House of the Gipsies.mp3": {
+    "title": "Majesta",
+    "creator": "House of the Gipsies",
+    "attribution_required": false,
+    "attribution_text": null
+  },
+  "Mas Cafe - Casa Rosa.mp3": {
+    "title": "Mas Cafe",
+    "creator": "Casa Rosa",
+    "attribution_required": false,
+    "attribution_text": null
+  },
+  "Mediterranean View - Everet Almond.mp3": {
+    "title": "Mediterranean View",
+    "creator": "Everet Almond",
+    "attribution_required": false,
+    "attribution_text": null
+  },
+  "Moritas Moras - House of the Gipsies.mp3": {
+    "title": "Moritas Moras",
+    "creator": "House of the Gipsies",
+    "attribution_required": false,
+    "attribution_text": null
+  },
+  "Once In A While I Dream - Tama Shutts.mp3": {
+    "title": "Once In A While I Dream",
+    "creator": "Tama Shutts",
+    "attribution_required": false,
+    "attribution_text": null
+  },
+  "Oracion - House of the Gipsies.mp3": {
+    "title": "Oracion",
+    "creator": "House of the Gipsies",
+    "attribution_required": false,
+    "attribution_text": null
+  },
+  "Orquidario - Quincas Moreira.mp3": {
+    "title": "Orquidario",
+    "creator": "Quincas Moreira",
+    "attribution_required": false,
+    "attribution_text": null
+  },
+  "Paseo - House of the Gipsies.mp3": {
+    "title": "Paseo",
+    "creator": "House of the Gipsies",
+    "attribution_required": false,
+    "attribution_text": null
+  },
+  "Porchlight Hymn - Patrick Jordan Patrikios.mp3": {
+    "title": "Porchlight Hymn",
+    "creator": "Patrick Jordan Patrikios",
+    "attribution_required": false,
+    "attribution_text": null
+  },
+  "Saddled up at dawn - Patrick Jordan Patrikios.mp3": {
+    "title": "Saddled up at dawn",
+    "creator": "Patrick Jordan Patrikios",
+    "attribution_required": false,
+    "attribution_text": null
+  },
+  "Samba Gitana - House of the Gipsies.mp3": {
+    "title": "Samba Gitana",
+    "creator": "House of the Gipsies",
+    "attribution_required": false,
+    "attribution_text": null
+  },
+  "Some Green Some Yellow - Karneef.mp3": {
+    "title": "Some Green Some Yellow",
+    "creator": "Karneef",
+    "attribution_required": false,
+    "attribution_text": null
+  },
+  "Song for Boggy - Karneef.mp3": {
+    "title": "Song for Boggy",
+    "creator": "Karneef",
+    "attribution_required": false,
+    "attribution_text": null
+  },
+  "Start Vacuum - Karneef.mp3": {
+    "title": "Start Vacuum",
+    "creator": "Karneef",
+    "attribution_required": false,
+    "attribution_text": null
+  },
+  "Torn - Patrick Jordan Patrikios.mp3": {
+    "title": "Torn",
+    "creator": "Patrick Jordan Patrikios",
+    "attribution_required": false,
+    "attribution_text": null
+  },
+  "Toy Store Funk - Karneef.mp3": {
+    "title": "Toy Store Funk",
+    "creator": "Karneef",
+    "attribution_required": false,
+    "attribution_text": null
+  },
+  "Up And At Em - Nathan Moore.mp3": {
+    "title": "Up And At Em",
+    "creator": "Nathan Moore",
+    "attribution_required": false,
+    "attribution_text": null
+  },
+  "What If So Then - Karneef.mp3": {
+    "title": "What If So Then",
+    "creator": "Karneef",
+    "attribution_required": false,
+    "attribution_text": null
+  },
+  "Yeah Smoove Smoove - Karneef.mp3": {
+    "title": "Yeah Smoove Smoove",
+    "creator": "Karneef",
     "attribution_required": false,
     "attribution_text": null
   }
