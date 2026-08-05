@@ -18,6 +18,8 @@ from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from dotenv import load_dotenv
 
+from thumbnail_gen import make_thumbnail, HOOK_LINES
+
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
 load_dotenv()
@@ -46,6 +48,7 @@ BACKGROUNDS_DIR = os.path.join(base_dir, 'backgrounds')
 TEMP_DIR = os.path.join(base_dir, 'temp_jazz')
 TRACK_INFO_FILE = os.path.join(MUSIC_DIR, 'track_info.json')
 FINAL_OUTPUT = os.path.join(base_dir, 'final_jazz_mix.mp4')
+THUMBNAIL_OUTPUT = os.path.join(base_dir, 'final_thumbnail.png')
 
 logging.basicConfig(
     level=logging.INFO,
@@ -319,7 +322,7 @@ MOODS = [
 
 TITLE_TEMPLATES = [
     "{duration} of {mood} Jazz for Studying & Relaxation",
-    "{mood} Jazz Radio — {duration} of Non-Stop Smooth Jazz",
+    "{mood} Jazz Lounge — {duration} of Non-Stop Smooth Jazz",
     "{duration} Smooth Jazz Piano — {mood} Ambience for Work & Sleep",
     "{mood} Jazz Cafe — {duration} of Chill Background Music",
 ]
@@ -328,6 +331,9 @@ HASHTAG_POOL = [
     "#jazz", "#lofijazz", "#smoothjazz", "#jazzcafe", "#relaxingmusic",
     "#studymusic", "#chilljazz", "#focusmusic", "#jazzmusic",
     "#backgroundmusic", "#jazzpiano", "#loungejazz",
+    "#jazznoir", "#coffeeshopmusic", "#rainyjazz", "#jazzvibes",
+    "#ambientmusic", "#jazzbar", "#sleepmusic", "#relaxingjazz",
+    "#worklofi", "#eveningjazz", "#jazzlounge", "#cozyjazz",
 ]
 
 
@@ -393,10 +399,12 @@ def mux_final_video(bg_path, combined_audio_path, target_sec):
     return FINAL_OUTPUT
 
 
-def upload_to_youtube(video_path, title, description, tags=None):
+def upload_to_youtube(video_path, title, description, tags=None, thumbnail_path=None):
     logger.info("📤 YouTube-ке жүктеу басталуда...")
 
-    scopes = ["https://www.googleapis.com/auth/youtube.upload"]
+    # youtube.upload жеткіліксіз — thumbnails().set() кеңейтілген
+    # "https://www.googleapis.com/auth/youtube" scope-ын талап етеді.
+    scopes = ["https://www.googleapis.com/auth/youtube"]
     client_file = os.path.join(base_dir, "client_secrets.json")
     token_file = os.path.join(base_dir, "youtube_token.json")
 
@@ -470,6 +478,18 @@ def upload_to_youtube(video_path, title, description, tags=None):
         logger.info(f"   ID: {video_id}")
         logger.info(f"   URL: https://youtube.com/watch?v={video_id}")
 
+        if thumbnail_path and os.path.exists(thumbnail_path):
+            try:
+                youtube.thumbnails().set(
+                    videoId=video_id,
+                    media_body=googleapiclient.http.MediaFileUpload(thumbnail_path)
+                ).execute()
+                logger.info("✓ Custom thumbnail орнатылды")
+            except Exception as e:
+                # Телефон нөмірі расталмаған арналарда thumbnails().set() 403 қайтарады —
+                # видео жүктелуіне кедергі болмауы үшін тек warning ретінде логтаймыз.
+                logger.warning(f"⚠️ Thumbnail орнатылмады (арна телефонмен расталған ба тексеріңіз): {str(e)[:200]}")
+
     except Exception as e:
         logger.error(f"❌ Жүктеу қатесі: {e}")
         raise
@@ -511,12 +531,21 @@ def generate_video(skip_upload: bool = False):
         title, description, tags = build_title_and_description(target_minutes, selected_tracks)
         logger.info(f"🏷️ Тақырып: {title}")
 
+        logger.info("🖼️ Thumbnail жасалуда...")
+        try:
+            hook_text = random.choice(HOOK_LINES)
+            make_thumbnail(hook_text, target_minutes, THUMBNAIL_OUTPUT)
+            logger.info(f"✓ Thumbnail дайын: {THUMBNAIL_OUTPUT}")
+        except Exception as e:
+            logger.warning(f"⚠️ Thumbnail жасалмады: {str(e)[:150]}")
+
         logger.info("⏳ Финалды видео мукстелуде...")
         final_path = retry_with_backoff(lambda: mux_final_video(bg_path, combined_audio_path, target_sec))
         logger.info(f"✓ Видео дайын: {final_path}")
 
         if not skip_upload:
-            retry_with_backoff(lambda: upload_to_youtube(final_path, title, description, tags))
+            thumb = THUMBNAIL_OUTPUT if os.path.exists(THUMBNAIL_OUTPUT) else None
+            retry_with_backoff(lambda: upload_to_youtube(final_path, title, description, tags, thumb))
             send_telegram(
                 f"✅ <b>Жаңа Jazz видео жүктелді!</b>\n"
                 f"📌 <b>Тақырып:</b> {title}\n"

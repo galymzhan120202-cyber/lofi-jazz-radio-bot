@@ -10,8 +10,11 @@
 ## 1. Жаңа YouTube арна
 
 1. Жаңа Google аккаунт ашыңыз (немесе қазіргі аккаунтта қосымша арна құрыңыз — Brand Account).
-2. YouTube Studio-да арнаны jazz/lofi radio нишасына сай атаумен, суретпен баптаңыз
-   (мыс. "Lo-Fi Jazz Radio", "Midnight Jazz Lounge").
+2. YouTube Studio-да арнаны jazz lounge нишасына сай атаумен, суретпен баптаңыз
+   (қолданыстағы арна: **Velvet Jazz Lounge**, @VelvetJazzLoungeKZ).
+3. Атауды/псевдонимді өзгерту кезінде абай болыңыз: YouTube бірнеше рет қатарынан
+   сәтсіз атау жіберсеңіз (себебі кез келген болуы мүмкін — валидация тым сезімтал)
+   **24 сағатқа rate-limit** қояды. Handle (псевдоним) бөлек, тезірек өзгереді.
 
 ## 2. Google Cloud OAuth (жүктеу үшін міндетті)
 
@@ -38,7 +41,17 @@
    - `JAZZ_YOUTUBE_TOKEN_JSON` — `youtube_token.json` файлының толық мазмұны (2-қадамнан кейін пайда болады)
 
    Telegram-ды AITechShorts-пен ортақ бот/chat арқылы пайдалануға болады — хабарлама
-   мәтінінде "Jazz Radio" деп көрсетіледі, шатаспайсыз.
+   мәтінінде "Velvet Jazz Lounge" деп көрсетіледі, шатаспайсыз.
+
+**Custom thumbnail туралы:** `thumbnail_gen.py` әр видеоға брендтелген thumbnail
+(vinyl/rain window/piano/city night сахналары) автоматты жасайды және
+`youtube.thumbnails().set()` арқылы қояды. Бұған **толық** `youtube` scope керек
+(`youtube.upload` жеткіліксіз) — `client_secrets.json` мен `youtube_token.json`
+осы жаңартылған кодпен қайта жасалуы керек (ескі токен escpe қалса, 403 қатесі
+шығады, жай warning ретінде логталады, upload үзілмейді). Сондай-ақ **арна
+телефон нөмірімен расталған болуы керек** — расталмаса, thumbnail орнатылмайды
+(YouTube шектеуі, API-мен айналып өту мүмкін емес): YouTube Studio → Настройки →
+Канал → Расширенные настройки → "Подтверждение номера телефона".
 
 ## 4. Музыка — YouTube Audio Library (КРИТИКАЛЫҚ ҚАДАМ)
 

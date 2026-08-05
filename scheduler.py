@@ -27,7 +27,7 @@ from jazz_video_gen import generate_video, send_telegram
 
 def job():
     logger.info("⏰ Jazz жүктеу басталды...")
-    send_telegram("⏰ <b>Jazz Radio жүктеу басталды</b>")
+    send_telegram("⏰ <b>Velvet Jazz Lounge жүктеу басталды</b>")
     try:
         generate_video()
         logger.info("✅ Jazz жүктеу сәтті аяқталды")
@@ -40,7 +40,7 @@ kz_time = f"{(int(POST_TIME.split(':')[0]) + 5) % 24:02d}:{POST_TIME.split(':')[
 logger.info(f"🚀 Jazz Scheduler іске қосылды — күнде 1 видео, {POST_TIME} UTC ({kz_time} KZ)")
 logger.info("   Тоқтату үшін Ctrl+C")
 send_telegram(
-    f"🚀 <b>Jazz Radio Scheduler іске қосылды</b>\n"
+    f"🚀 <b>Velvet Jazz Lounge Scheduler іске қосылды</b>\n"
     f"📅 Күнде <b>1 видео</b>\n"
     f"🕐 Уақыты (KZ): <b>{kz_time}</b>"
 )
