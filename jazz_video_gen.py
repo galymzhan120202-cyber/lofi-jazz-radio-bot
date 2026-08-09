@@ -480,16 +480,22 @@ def add_video_to_playlists(youtube, video_id, mood):
 
     for playlist_title in titles:
         try:
-            playlist_id = get_or_create_playlist(youtube, playlist_title)
-            youtube.playlistItems().insert(
-                part="snippet",
-                body={
-                    "snippet": {
-                        "playlistId": playlist_id,
-                        "resourceId": {"kind": "youtube#video", "videoId": video_id},
-                    }
-                },
-            ).execute()
+            def add_one(playlist_title=playlist_title):
+                playlist_id = get_or_create_playlist(youtube, playlist_title)
+                youtube.playlistItems().insert(
+                    part="snippet",
+                    body={
+                        "snippet": {
+                            "playlistId": playlist_id,
+                            "resourceId": {"kind": "youtube#video", "videoId": video_id},
+                        }
+                    },
+                ).execute()
+
+            # Жаңа жүктелген видеоны бірінші playlistItems.insert шақыруы кейде
+            # HttpError 409 "The operation was aborted" қайтарады — YouTube backend
+            # видеоны әлі толық таратып үлгермегендіктен. Қысқа retry жеткілікті.
+            retry_with_backoff(add_one, max_retries=3, retry_delay=2)
             logger.info(f"✓ Плейлистке қосылды: {playlist_title}")
         except Exception as e:
             logger.warning(f"⚠️ Плейлистке қосу сәтсіз ({playlist_title}): {str(e)[:150]}")
