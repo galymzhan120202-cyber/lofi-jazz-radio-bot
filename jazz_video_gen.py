@@ -321,10 +321,10 @@ MOODS = [
 ]
 
 TITLE_TEMPLATES = [
-    "{duration} of {mood} Jazz for Studying & Relaxation",
-    "{mood} Jazz Lounge — {duration} of Non-Stop Smooth Jazz",
-    "{duration} Smooth Jazz Piano — {mood} Ambience for Work & Sleep",
-    "{mood} Jazz Cafe — {duration} of Chill Background Music",
+    "{mood} Jazz for Studying & Relaxation",
+    "{mood} Jazz Lounge — Non-Stop Smooth Jazz",
+    "Smooth Jazz Piano — {mood} Ambience for Work & Sleep",
+    "{mood} Jazz Cafe — Chill Background Music",
 ]
 
 # Ең жоғары іздеу көлемді 3 hashtag — YouTube сипаттаманың алғашқы 3 hashtag-ын
@@ -354,15 +354,6 @@ SEO_KEYWORD_PHRASES = [
 ]
 
 
-def duration_label(minutes):
-    if minutes < 90:
-        return f"{minutes} Minutes"
-    hours = round(minutes / 60, 1)
-    if hours == int(hours):
-        hours = int(hours)
-    return f"{hours} Hours"
-
-
 def pick_rotating_tags(count=6):
     """ANCHOR_HASHTAGS әрдайым бірінші (YouTube олардан chip көрсетеді),
     қалғаны пулдан кездейсоқ таңдалады."""
@@ -370,10 +361,24 @@ def pick_rotating_tags(count=6):
     return ' '.join(ANCHOR_HASHTAGS + extra)
 
 
-def build_title_and_description(target_minutes, selected_tracks):
+PLAYLIST_THEMES = {
+    "Deep Focus": "Focus & Study Jazz",
+    "Study & Chill": "Focus & Study Jazz",
+    "Late Night": "Late Night Jazz Lounge",
+    "Midnight": "Late Night Jazz Lounge",
+    "Rainy Night": "Late Night Jazz Lounge",
+    "Relaxing": "Relaxing Jazz Lounge",
+    "Peaceful": "Relaxing Jazz Lounge",
+    "Warm": "Relaxing Jazz Lounge",
+    "Cozy": "Relaxing Jazz Lounge",
+    "Sunday Morning": "Morning Jazz Cafe",
+}
+MASTER_PLAYLIST_TITLE = "Velvet Jazz Lounge — All Mixes"
+
+
+def build_title_and_description(selected_tracks):
     mood = random.choice(MOODS)
-    duration = duration_label(target_minutes)
-    title = random.choice(TITLE_TEMPLATES).format(duration=duration, mood=mood)[:100]
+    title = random.choice(TITLE_TEMPLATES).format(mood=mood)[:100]
 
     tracklist_lines = []
     attribution_lines = []
@@ -390,25 +395,30 @@ def build_title_and_description(target_minutes, selected_tracks):
             attribution_lines.append(track["attribution_text"])
 
     hashtags = pick_rotating_tags()
+    divider = "─" * 28
 
     # Бірінші абзацта негізгі кілт сөздерді табиғи сөйлеммен қайталау — YouTube
     # іздеу индексі сипаттама мәтінін де оқиды, тек hashtag-тарды емес.
     seo_intro = (
-        f"{duration} of {mood.lower()} smooth jazz music — the perfect jazz playlist "
-        f"for studying, working, relaxing or falling asleep. A cozy jazz lounge mix "
-        f"of piano, saxophone and lounge jazz to help you focus or unwind."
+        f"A {mood.lower()} smooth jazz mix — the perfect jazz playlist for studying, "
+        f"working, relaxing or falling asleep. A cozy jazz lounge blend of piano, "
+        f"saxophone and lounge jazz to help you focus or unwind."
     )
 
     description_parts = [
-        f"{title}\n",
-        f"🎵 {seo_intro}\n",
-        "Tracklist:",
+        f"🎷 {title}",
+        f"\n{seo_intro}\n",
+        f"{divider}",
+        "🎶 TRACKLIST",
+        f"{divider}",
         "\n".join(f"{i+1}. {line}" for i, line in enumerate(tracklist_lines[:40])),
     ]
     if attribution_lines:
-        description_parts.append("\nAttribution:\n" + "\n".join(attribution_lines))
+        description_parts.append(f"\n{divider}\nAttribution\n{divider}\n" + "\n".join(attribution_lines))
     description_parts.append(
-        "\n🔔 Subscribe for a new smooth jazz mix every single day."
+        f"\n{divider}\n📻 VELVET JAZZ LOUNGE\n{divider}\n"
+        "A new smooth jazz mix, every single day. 🔔 Subscribe and turn on "
+        "notifications so you never miss a session."
     )
     description_parts.append(f"\n{hashtags}")
 
@@ -418,7 +428,7 @@ def build_title_and_description(target_minutes, selected_tracks):
     seo_tags = random.sample(SEO_KEYWORD_PHRASES, min(8, len(SEO_KEYWORD_PHRASES)))
     tags = [t.lstrip('#') for t in hashtags.split()] + seo_tags + ["velvet jazz lounge"]
 
-    return title, description, tags
+    return title, description, tags, mood
 
 
 def mux_final_video(bg_path, combined_audio_path, target_sec):
@@ -433,7 +443,59 @@ def mux_final_video(bg_path, combined_audio_path, target_sec):
     return FINAL_OUTPUT
 
 
-def upload_to_youtube(video_path, title, description, tags=None, thumbnail_path=None):
+def get_or_create_playlist(youtube, title):
+    """Атауы бойынша каналдағы плейлистті табады, жоқ болса жасайды.
+    Плейлисттер жанрлық іздеуде ("jazz playlist") өз алдына индекстеледі
+    және session watch time-ды арттырады — жаңа арнаға алгоритмдік
+    трафик тартудың ең тез жолдарының бірі."""
+    request = youtube.playlists().list(part="snippet", mine=True, maxResults=50)
+    while request is not None:
+        response = request.execute()
+        for item in response.get("items", []):
+            if item["snippet"]["title"] == title:
+                return item["id"]
+        request = youtube.playlists().list_next(request, response)
+
+    created = youtube.playlists().insert(
+        part="snippet,status",
+        body={
+            "snippet": {
+                "title": title,
+                "description": f"{title} — Velvet Jazz Lounge smooth jazz mixes.",
+            },
+            "status": {"privacyStatus": YOUTUBE_PRIVACY_STATUS},
+        },
+    ).execute()
+    return created["id"]
+
+
+def add_video_to_playlists(youtube, video_id, mood):
+    """Видеоны mood-ына сай тақырыптық плейлистке және жалпы master
+    плейлистке қосады. Плейлист операциялары upload-ты бұзбауы үшін
+    әр плейлист бөлек try/except-пен қоршалған."""
+    titles = [MASTER_PLAYLIST_TITLE]
+    theme = PLAYLIST_THEMES.get(mood)
+    if theme:
+        titles.append(theme)
+
+    for playlist_title in titles:
+        try:
+            playlist_id = get_or_create_playlist(youtube, playlist_title)
+            youtube.playlistItems().insert(
+                part="snippet",
+                body={
+                    "snippet": {
+                        "playlistId": playlist_id,
+                        "resourceId": {"kind": "youtube#video", "videoId": video_id},
+                    }
+                },
+            ).execute()
+            logger.info(f"✓ Плейлистке қосылды: {playlist_title}")
+        except Exception as e:
+            logger.warning(f"⚠️ Плейлистке қосу сәтсіз ({playlist_title}): {str(e)[:150]}")
+
+
+def upload_to_youtube(video_path, title, description, tags=None, thumbnail_path=None, mood=None):
     logger.info("📤 YouTube-ке жүктеу басталуда...")
 
     # youtube.upload жеткіліксіз — thumbnails().set() кеңейтілген
@@ -478,7 +540,9 @@ def upload_to_youtube(video_path, title, description, tags=None, thumbnail_path=
                 "title": title,
                 "description": description,
                 "categoryId": YOUTUBE_CATEGORY_ID,
-                "tags": tags or ["jazz", "lofi jazz", "relaxing music"]
+                "tags": tags or ["jazz", "lofi jazz", "relaxing music"],
+                "defaultLanguage": "en",
+                "defaultAudioLanguage": "en"
             },
             "status": {
                 "privacyStatus": YOUTUBE_PRIVACY_STATUS,
@@ -524,6 +588,9 @@ def upload_to_youtube(video_path, title, description, tags=None, thumbnail_path=
                 # видео жүктелуіне кедергі болмауы үшін тек warning ретінде логтаймыз.
                 logger.warning(f"⚠️ Thumbnail орнатылмады (арна телефонмен расталған ба тексеріңіз): {str(e)[:200]}")
 
+        if mood:
+            add_video_to_playlists(youtube, video_id, mood)
+
     except Exception as e:
         logger.error(f"❌ Жүктеу қатесі: {e}")
         raise
@@ -562,7 +629,7 @@ def generate_video(skip_upload: bool = False):
         logger.info("🖼️ Фон видео алынуда...")
         bg_path = retry_with_backoff(get_background_video)
 
-        title, description, tags = build_title_and_description(target_minutes, selected_tracks)
+        title, description, tags, mood = build_title_and_description(selected_tracks)
         logger.info(f"🏷️ Тақырып: {title}")
 
         logger.info("🖼️ Thumbnail жасалуда...")
@@ -579,7 +646,7 @@ def generate_video(skip_upload: bool = False):
 
         if not skip_upload:
             thumb = THUMBNAIL_OUTPUT if os.path.exists(THUMBNAIL_OUTPUT) else None
-            retry_with_backoff(lambda: upload_to_youtube(final_path, title, description, tags, thumb))
+            retry_with_backoff(lambda: upload_to_youtube(final_path, title, description, tags, thumb, mood))
             send_telegram(
                 f"✅ <b>Жаңа Jazz видео жүктелді!</b>\n"
                 f"📌 <b>Тақырып:</b> {title}\n"
