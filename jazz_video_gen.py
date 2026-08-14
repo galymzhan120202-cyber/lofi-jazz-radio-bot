@@ -2,7 +2,6 @@ import os
 import sys
 import io
 import json
-import glob
 import random
 import shutil
 import logging
@@ -209,30 +208,56 @@ def build_jazz_playlist(target_sec):
     return selected
 
 
+CROSSFADE_SEC = 3.0
+
+
 def build_combined_audio(selected_tracks, target_sec):
-    """Таңдалған треконы бірдей форматқа (AAC 44.1kHz stereo) келтіріп,
-    ffmpeg concat demuxer арқылы бір файлға склейкалап, target_sec-ке дәл қиып алу."""
+    """Таңдалған треконы бірдей форматқа (AAC 44.1kHz stereo) және дыбыс
+    деңгейіне (loudnorm) келтіріп, acrossfade тізбегімен (қатты кесу орнына
+    жұмсақ өту) біріктіріп, target_sec-ке дәл қиып алу."""
     normalized_paths = []
     for i, track in enumerate(selected_tracks):
         norm_path = os.path.join(TEMP_DIR, f"norm_{i:03d}.m4a")
         run_ffmpeg(
             ['ffmpeg', '-i', track["path"], '-vn', '-ar', '44100', '-ac', '2',
+             '-af', 'loudnorm=I=-16:TP=-1.5:LRA=11',
              '-c:a', 'aac', '-b:a', '192k', norm_path],
-            f"Нормализация: {track['filename']}"
+            f"Норм+дыбыс деңгейі: {track['filename']}"
         )
         normalized_paths.append(norm_path)
 
-    concat_list_path = os.path.join(TEMP_DIR, 'concat_list.txt')
-    with open(concat_list_path, 'w', encoding='utf-8') as f:
-        for p in normalized_paths:
-            safe_path = p.replace('\\', '/')
-            f.write(f"file '{safe_path}'\n")
-
     combined_path = os.path.join(TEMP_DIR, 'combined.m4a')
+
+    if len(normalized_paths) == 1:
+        run_ffmpeg(
+            ['ffmpeg', '-i', normalized_paths[0], '-t', str(target_sec),
+             '-c', 'copy', combined_path],
+            "Аудио қию (жалғыз трек)"
+        )
+        return combined_path
+
+    # Тізбектей acrossfade: [0][1]acrossfade[a1];[a1][2]acrossfade[a2];...[out]
+    inputs = []
+    for p in normalized_paths:
+        inputs += ['-i', p]
+
+    filter_parts = []
+    prev_label = '0'
+    last_index = len(normalized_paths) - 1
+    for i in range(1, len(normalized_paths)):
+        out_label = 'out' if i == last_index else f'a{i}'
+        filter_parts.append(
+            f"[{prev_label}][{i}]acrossfade=d={CROSSFADE_SEC}:c1=tri:c2=tri[{out_label}]"
+        )
+        prev_label = out_label
+    filter_complex = ';'.join(filter_parts)
+
     run_ffmpeg(
-        ['ffmpeg', '-f', 'concat', '-safe', '0', '-i', concat_list_path,
-         '-t', str(target_sec), '-c', 'copy', combined_path],
-        "Аудио склейка + қию"
+        ['ffmpeg'] + inputs + [
+            '-filter_complex', filter_complex, '-map', '[out]',
+            '-t', str(target_sec), '-c:a', 'aac', '-b:a', '192k', combined_path
+        ],
+        "Аудио crossfade склейка + қию"
     )
     return combined_path
 
@@ -245,63 +270,147 @@ VIVID_BG_QUERIES = [
 ]
 
 
+BG_REEL_CLIP_COUNT = 6
+BG_REEL_WIDTH = 1920
+BG_REEL_HEIGHT = 1080
+BG_REEL_FPS = 30
+
+
+def _fetch_one_pexels_clip(query, dest_path):
+    """Pexels-тен бір query бойынша жарқын/түрлі-түсті 16:9 видео тауып,
+    dest_path-қа жүктейді. Сәйкес видео табылмаса — None қайтарады."""
+    response = requests.get(
+        "https://api.pexels.com/videos/search",
+        headers={"Authorization": PEXELS_API_KEY},
+        params={"query": query, "orientation": "landscape", "per_page": 15},
+        timeout=15
+    )
+    response.raise_for_status()
+    videos = response.json().get("videos", [])
+    if not videos:
+        logger.warning(f"⚠️ Pexels: '{query}' бойынша видео табылмады")
+        return None
+
+    video_data = random.choice(videos)
+    candidates = [
+        vf for vf in video_data.get("video_files", [])
+        if vf.get("width", 0) > vf.get("height", 0)
+        and 1280 <= vf.get("width", 0) <= 1920
+    ]
+    if not candidates:
+        candidates = [
+            vf for vf in video_data.get("video_files", [])
+            if vf.get("width", 0) > vf.get("height", 0) and vf.get("width", 0) >= 854
+        ]
+    if not candidates:
+        return None
+
+    candidates.sort(key=lambda vf: vf["width"], reverse=True)
+    video_file = candidates[0]
+
+    dl_response = requests.get(video_file["link"], stream=True, timeout=60)
+    dl_response.raise_for_status()
+
+    with open(dest_path, "wb") as f:
+        for chunk in dl_response.iter_content(chunk_size=1024 * 256):
+            f.write(chunk)
+
+    if os.path.getsize(dest_path) < 10_000:
+        raise Exception("Жүктелген видео тым кіші")
+
+    return dest_path
+
+
+def fetch_pexels_bg_clips(n=BG_REEL_CLIP_COUNT):
+    """Pexels-тен n түрлі query бойынша қысқа клип жүктеп, TEMP_DIR-ге сақтайды —
+    бір ғана клипті бүкіл видеоға loop-тау орнына, бірнеше клиптен варианттты
+    'reel' құру үшін. Бір клип сәтсіз болса — өткізіп, қалғанымен жалғастырады.
+    Кілт жоқ болса — бос тізім (fallback үшін)."""
+    if not PEXELS_API_KEY:
+        return []
+
+    queries = random.sample(VIVID_BG_QUERIES, min(n, len(VIVID_BG_QUERIES)))
+    while len(queries) < n:
+        queries.append(random.choice(VIVID_BG_QUERIES))
+
+    clip_paths = []
+    for i, query in enumerate(queries):
+        dest = os.path.join(TEMP_DIR, f"_pexels_clip_{i:02d}.mp4")
+        try:
+            result = _fetch_one_pexels_clip(query, dest)
+            if result:
+                clip_paths.append(result)
+        except Exception as e:
+            logger.warning(f"⚠️ Pexels клип қатесі ('{query}'): {str(e)[:150]}")
+
+    if clip_paths:
+        logger.info(f"✓ Pexels-тен {len(clip_paths)} фон клип жүктелді")
+    return clip_paths
+
+
+def build_bg_reel(clip_paths):
+    """Бірнеше қысқа клипті бір ортақ форматқа (1920x1080, 30fps, yuv420p)
+    келтіріп, бір 'reel' файлға склейкалайды. Реел кейін толық видео
+    ұзақтығына stream_loop арқылы копияланады (қымбат толық re-encode жоқ),
+    сондықтан бір 10-30 секундтық клип орнына бірнеше минуттық түрлі-түсті
+    reel қайталанады."""
+    normalized_paths = []
+    for i, clip_path in enumerate(clip_paths):
+        norm_path = os.path.join(TEMP_DIR, f"_pexels_norm_{i:02d}.mp4")
+        run_ffmpeg(
+            ['ffmpeg', '-i', clip_path,
+             '-vf', f'scale={BG_REEL_WIDTH}:{BG_REEL_HEIGHT}:force_original_aspect_ratio=increase,'
+                    f'crop={BG_REEL_WIDTH}:{BG_REEL_HEIGHT},fps={BG_REEL_FPS}',
+             '-pix_fmt', 'yuv420p', '-an', '-c:v', 'libx264', '-preset', 'veryfast',
+             '-crf', '20', norm_path],
+            f"Фон клипті нормалау: {os.path.basename(clip_path)}"
+        )
+        normalized_paths.append(norm_path)
+
+    concat_list_path = os.path.join(TEMP_DIR, 'bg_concat_list.txt')
+    with open(concat_list_path, 'w', encoding='utf-8') as f:
+        for p in normalized_paths:
+            safe_path = p.replace('\\', '/')
+            f.write(f"file '{safe_path}'\n")
+
+    reel_path = os.path.join(TEMP_DIR, 'bg_reel.mp4')
+    run_ffmpeg(
+        ['ffmpeg', '-f', 'concat', '-safe', '0', '-i', concat_list_path,
+         '-c', 'copy', reel_path],
+        "Фон reel склейкасы"
+    )
+    return reel_path
+
+
 def fetch_pexels_loop_bg():
-    """Pexels API арқылы жарқын/түрлі-түсті 16:9 (landscape) loop-қа жарамды
-    видео жүктеп алу. Кілт жоқ/сәтсіз болса — None (локал fallback үшін)."""
+    """Fallback: bg reel үшін жеткілікті клип жиналмаса, бір Pexels видеосын
+    жүктейді (бұрынғы бір-клиптік тәртіп). Кілт жоқ/сәтсіз болса — None."""
     if not PEXELS_API_KEY:
         return None
 
     query = random.choice(VIVID_BG_QUERIES)
+    dest = os.path.join(TEMP_DIR, "_pexels_fallback.mp4")
     try:
-        response = requests.get(
-            "https://api.pexels.com/videos/search",
-            headers={"Authorization": PEXELS_API_KEY},
-            params={"query": query, "orientation": "landscape", "per_page": 15},
-            timeout=15
-        )
-        response.raise_for_status()
-        videos = response.json().get("videos", [])
-        if not videos:
-            logger.warning(f"⚠️ Pexels: '{query}' бойынша видео табылмады")
-            return None
-
-        video_data = random.choice(videos)
-        candidates = [
-            vf for vf in video_data.get("video_files", [])
-            if vf.get("width", 0) > vf.get("height", 0)
-            and 1280 <= vf.get("width", 0) <= 1920
-        ]
-        if not candidates:
-            candidates = [
-                vf for vf in video_data.get("video_files", [])
-                if vf.get("width", 0) > vf.get("height", 0) and vf.get("width", 0) >= 854
-            ]
-        if not candidates:
-            return None
-
-        candidates.sort(key=lambda vf: vf["width"], reverse=True)
-        video_file = candidates[0]
-
-        dest = os.path.join(BACKGROUNDS_DIR, "_pexels_temp.mp4")
-        dl_response = requests.get(video_file["link"], stream=True, timeout=60)
-        dl_response.raise_for_status()
-
-        with open(dest, "wb") as f:
-            for chunk in dl_response.iter_content(chunk_size=1024 * 256):
-                f.write(chunk)
-
-        if os.path.getsize(dest) < 10_000:
-            raise Exception("Жүктелген видео тым кіші")
-
-        logger.info(f"✓ Pexels-тен фон видео жүктелді (сұрау: '{query}')")
-        return dest
-
+        result = _fetch_one_pexels_clip(query, dest)
+        if result:
+            logger.info(f"✓ Pexels-тен fallback фон видео жүктелді (сұрау: '{query}')")
+        return result
     except Exception as e:
         logger.warning(f"⚠️ Pexels қатесі, локал fallback қолданылады: {str(e)[:150]}")
         return None
 
 
 def get_background_video():
+    """Бірнеше Pexels клиптен варианттты 'reel' құрастырады (бір клипті бүкіл
+    видеоға loop-таудың орнына). Жеткіліксіз клип жиналса (API ақаулығы) —
+    бір-клиптік fallback, содан кейін локал backgrounds/ папкасы қолданылады."""
+    clip_paths = fetch_pexels_bg_clips()
+    if len(clip_paths) >= 2:
+        try:
+            return build_bg_reel(clip_paths)
+        except Exception as e:
+            logger.warning(f"⚠️ Reel құрастыру сәтсіз, fallback қолданылады: {str(e)[:150]}")
+
     bg_path = fetch_pexels_loop_bg()
     if bg_path:
         return bg_path
@@ -603,14 +712,10 @@ def upload_to_youtube(video_path, title, description, tags=None, thumbnail_path=
 
 
 def cleanup_temp_files():
-    """Уақытша файлдарды өшіру."""
+    """Уақытша файлдарды өшіру (Pexels клип жүктеулері де TEMP_DIR ішінде
+    сақталады, сондықтан бөлек тазалау қажет емес)."""
     if os.path.exists(TEMP_DIR):
         shutil.rmtree(TEMP_DIR, ignore_errors=True)
-    for temp_file in glob.glob(os.path.join(BACKGROUNDS_DIR, "_pexels_temp.mp4")):
-        try:
-            os.remove(temp_file)
-        except Exception:
-            pass
 
 
 def generate_video(skip_upload: bool = False):
@@ -625,7 +730,13 @@ def generate_video(skip_upload: bool = False):
         target_sec = target_minutes * 60
         logger.info(f"🎯 Мақсатты ұзақтық: {target_minutes} мин")
 
-        selected_tracks = build_jazz_playlist(target_sec)
+        # acrossfade әр трек ауысуында CROSSFADE_SEC жинақы ұзақтықты қысқартады —
+        # соны өтеу үшін треклистті сәл артық ұзақтыққа құрастырамыз (орташа трек
+        # ~150 сек деп есептеп), финалды қию (build_combined_audio ішінде) дәл
+        # target_sec-ке келтіреді.
+        estimated_track_count = max(1, int(target_sec // 150))
+        crossfade_padding_sec = CROSSFADE_SEC * (estimated_track_count + 1)
+        selected_tracks = build_jazz_playlist(target_sec + crossfade_padding_sec)
 
         logger.info("🎵 Аудио құрастырылуда...")
         combined_audio_path = retry_with_backoff(
