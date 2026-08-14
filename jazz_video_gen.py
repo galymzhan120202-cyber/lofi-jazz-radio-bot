@@ -519,23 +519,47 @@ PLAYLIST_THEMES = {
 MASTER_PLAYLIST_TITLE = "Velvet Jazz Lounge — All Mixes"
 
 
-def build_title_and_description(selected_tracks):
+def _format_chapter_timestamp(sec):
+    """YouTube chapters талап ететін 'm:ss' / 'h:mm:ss' пішіміне келтіру."""
+    sec = max(0, int(sec))
+    h, rem = divmod(sec, 3600)
+    m, s = divmod(rem, 60)
+    if h:
+        return f"{h}:{m:02d}:{s:02d}"
+    return f"{m}:{s:02d}"
+
+
+def build_title_and_description(selected_tracks, target_sec):
+    """target_sec — финалды видеоның нақты (қиылған) ұзақтығы секундпен;
+    треконың нақты басталу уақытын (crossfade ысыруын ескеріп) есептеу және
+    target_sec-тен кейін қалатын, финалда іс жүзінде жоқ треконы алып тастау
+    үшін қажет."""
     mood = random.choice(MOODS)
     title = random.choice(TITLE_TEMPLATES).format(mood=mood)[:100]
 
+    # YouTube chapters (тарау белгілері) үшін әр треконың нақты басталу уақыты:
+    # acrossfade тізбегі әр ауысымда CROSSFADE_SEC-ке ысырады, сондықтан i-ші
+    # (0-негізді) треконың басталуы = (алдыңғы треконың жинақы ұзақтығы) -
+    # i * CROSSFADE_SEC. Бір трек болса — crossfade жоқ, ысыру нөл.
     tracklist_lines = []
     attribution_lines = []
     seen_titles = set()
-    for track in selected_tracks:
+    running = 0.0
+    apply_crossfade = len(selected_tracks) > 1
+    for i, track in enumerate(selected_tracks):
+        start = running - i * CROSSFADE_SEC if apply_crossfade else 0.0
+        running += track["duration"]
+        if start >= target_sec:
+            break  # финалды қиюдан кейін бұл трек видеода жоқ
+
         label = track["title"]
-        if label in seen_titles:
-            continue
-        seen_titles.add(label)
         creator = track.get("creator")
-        line = f'"{label}"' + (f" — {creator}" if creator else "")
+        ts = _format_chapter_timestamp(start)
+        line = f'{ts} "{label}"' + (f" — {creator}" if creator else "")
         tracklist_lines.append(line)
-        if track.get("attribution_required") and track.get("attribution_text"):
+        if track.get("attribution_required") and track.get("attribution_text") and label not in seen_titles:
             attribution_lines.append(track["attribution_text"])
+        seen_titles.add(label)
 
     hashtags = pick_rotating_tags()
     divider = "─" * 28
@@ -552,16 +576,20 @@ def build_title_and_description(selected_tracks):
         f"🎷 {title}",
         f"\n{seo_intro}\n",
         f"{divider}",
-        "🎶 TRACKLIST",
+        "🎶 TRACKLIST (tap a time below to jump to that track)",
         f"{divider}",
-        "\n".join(f"{i+1}. {line}" for i, line in enumerate(tracklist_lines[:40])),
+        # YouTube chapters талабы: бірінші жол дәл 0:00-ден басталуы керек,
+        # уақыттар өспелі ретте, timestamp жолдары үзіліссіз болуы керек —
+        # сондықтан нөмірлеу немесе басқа мәтін араластырылмайды.
+        "\n".join(tracklist_lines[:100]),
     ]
     if attribution_lines:
         description_parts.append(f"\n{divider}\nAttribution\n{divider}\n" + "\n".join(attribution_lines))
     description_parts.append(
         f"\n{divider}\n📻 VELVET JAZZ LOUNGE\n{divider}\n"
         "A new smooth jazz mix, every single day. 🔔 Subscribe and turn on "
-        "notifications so you never miss a session."
+        "notifications so you never miss a session. 💬 Tell us in the comments "
+        "which mood you'd like next."
     )
     description_parts.append(f"\n{hashtags}")
 
@@ -780,7 +808,7 @@ def generate_video(skip_upload: bool = False):
         logger.info("🖼️ Фон видео алынуда...")
         bg_path = retry_with_backoff(get_background_video)
 
-        title, description, tags, mood = build_title_and_description(selected_tracks)
+        title, description, tags, mood = build_title_and_description(selected_tracks, target_sec)
         logger.info(f"🏷️ Тақырып: {title}")
 
         logger.info("🖼️ Thumbnail жасалуда...")
