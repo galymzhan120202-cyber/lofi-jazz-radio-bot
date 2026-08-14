@@ -273,7 +273,33 @@ VIVID_BG_QUERIES = [
 BG_REEL_CLIP_COUNT = 6
 BG_REEL_WIDTH = 1920
 BG_REEL_HEIGHT = 1080
-BG_REEL_FPS = 30
+BG_REEL_FPS = 60
+BG_MIN_PREFERRED_FPS = 50
+
+# Видео slug-ында (Pexels url өрісі) осы сөздердің біреуі кездессе —
+# jazz-lounge эстетикасына (кафе/түн/неон/винил/бар/т.б.) сәйкес деп
+# есептейміз. Pexels-тің tags өрісі іс жүзінде әрдайым бос қайтарылады
+# (тексерілді), сондықтан url slug-ы (мыс. "aerial-view-of-rooftop-bar-at
+# -night") нақты сипаттама сигналы ретінде қолданылады.
+BG_THEME_KEYWORDS = {
+    "neon", "cafe", "coffee", "city", "light", "night", "rain", "vinyl",
+    "record", "lounge", "bar", "cozy", "jazz", "aesthetic", "skyline",
+    "window", "vibrant", "colorful", "urban", "street", "turntable", "dj",
+    "cocktail", "drink", "rooftop", "latte", "barista", "retro", "piano",
+    "saxophone", "music", "ambience", "mood", "candle", "warm",
+}
+
+
+def _video_matches_theme(video_data):
+    """Видеоның Pexels бет slug-ы (url өрісінен) jazz-lounge эстетикасына
+    сай ма тексереді — видеоны жүктеуден бұрын тип назарда болу үшін. Slug
+    табылмаса — бас тартпаймыз (search сұрауының өзі релевантты)."""
+    url = video_data.get("url", "")
+    slug = url.rstrip("/").rsplit("/", 1)[-1]
+    words = slug.rsplit("-", 1)[0].replace("-", " ").lower() if slug else ""
+    if not words:
+        return True
+    return any(kw in words for kw in BG_THEME_KEYWORDS)
 
 
 def _fetch_one_pexels_clip(query, dest_path):
@@ -282,7 +308,7 @@ def _fetch_one_pexels_clip(query, dest_path):
     response = requests.get(
         "https://api.pexels.com/videos/search",
         headers={"Authorization": PEXELS_API_KEY},
-        params={"query": query, "orientation": "landscape", "per_page": 15},
+        params={"query": query, "orientation": "landscape", "size": "large", "per_page": 15},
         timeout=15
     )
     response.raise_for_status()
@@ -291,7 +317,10 @@ def _fetch_one_pexels_clip(query, dest_path):
         logger.warning(f"⚠️ Pexels: '{query}' бойынша видео табылмады")
         return None
 
-    video_data = random.choice(videos)
+    themed_videos = [v for v in videos if _video_matches_theme(v)]
+    if not themed_videos:
+        logger.warning(f"⚠️ Pexels: '{query}' — тегі сай видео жоқ, жалпы нәтижеден таңдалады")
+    video_data = random.choice(themed_videos if themed_videos else videos)
     candidates = [
         vf for vf in video_data.get("video_files", [])
         if vf.get("width", 0) > vf.get("height", 0)
@@ -305,7 +334,12 @@ def _fetch_one_pexels_clip(query, dest_path):
     if not candidates:
         return None
 
-    candidates.sort(key=lambda vf: vf["width"], reverse=True)
+    # Нағыз 50-60fps түсірілген клипті басым таңдау (тек ffmpeg-те fps=60
+    # қойып кадр қосарлаудан гөрі, шынайы тегіс қозғалыс болу үшін).
+    candidates.sort(
+        key=lambda vf: (vf.get("fps", 0) >= BG_MIN_PREFERRED_FPS, vf["width"]),
+        reverse=True
+    )
     video_file = candidates[0]
 
     dl_response = requests.get(video_file["link"], stream=True, timeout=60)
